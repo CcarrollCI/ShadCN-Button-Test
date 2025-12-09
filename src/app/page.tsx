@@ -1,26 +1,58 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 
 export default function Home() {
   const [clickCount, setClickCount] = useState(0)
   const [lastClicked, setLastClicked] = useState("")
+  const [isAutoClicking, setIsAutoClicking] = useState(false)
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const handleButtonClick = (buttonType: string) => {
     setClickCount(prev => prev + 1)
     setLastClicked(buttonType)
   }
 
+  const startAutoClicker = () => {
+    if (!isAutoClicking) {
+      setIsAutoClicking(true)
+      setLastClicked("Auto Clicker")
+      
+      intervalRef.current = setInterval(() => {
+        setClickCount(prev => prev + 1)
+      }, 1000) // 1000ms = 1 second
+    }
+  }
+
+  const stopAutoClicker = () => {
+    if (isAutoClicking && intervalRef.current) {
+      setIsAutoClicking(false)
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+      setLastClicked("Auto Clicker Stopped")
+    }
+  }
+
   const resetCounter = () => {
     setClickCount(0)
     setLastClicked("")
+    stopAutoClicker()
   }
+
+  // Cleanup interval on component unmount
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
+    }
+  }, [])
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-24 gap-6">
       <h1 className="text-4xl font-bold text-center mb-8">
-        ShadCN Button Test
+        Interactive shadcn/ui Buttons!
       </h1>
       
       {/* Status Display */}
@@ -29,6 +61,28 @@ export default function Home() {
         {lastClicked && (
           <p className="text-sm text-gray-600">Last clicked: {lastClicked}</p>
         )}
+        {isAutoClicking && (
+          <p className="text-sm text-green-600 font-semibold">🤖 Auto-clicking active!</p>
+        )}
+      </div>
+      
+      {/* Auto Clicker Controls */}
+      <div className="flex gap-4 items-center p-4 border rounded-lg bg-blue-50">
+        <Button 
+          onClick={startAutoClicker}
+          disabled={isAutoClicking}
+          variant={isAutoClicking ? "secondary" : "default"}
+        >
+          {isAutoClicking ? "Auto-Clicking..." : "Start Auto Clicker"}
+        </Button>
+        
+        <Button 
+          onClick={stopAutoClicker}
+          disabled={!isAutoClicking}
+          variant="outline"
+        >
+          Stop Auto Clicker
+        </Button>
       </div>
       
       {/* Test different button variants */}
@@ -103,7 +157,7 @@ export default function Home() {
           variant="outline" 
           onClick={resetCounter}
         >
-          Reset Counter
+          Reset Counter & Stop Auto
         </Button>
         
         <Button 
