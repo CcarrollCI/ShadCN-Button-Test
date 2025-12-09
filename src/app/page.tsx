@@ -20,7 +20,7 @@ export default function Home() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-24 gap-6">
       <h1 className="text-4xl font-bold text-center mb-8">
-        Interactive shadcn/ui Buttons
+        ShadCN UI Button Test
       </h1>
       
       {/* Status Display */}
@@ -93,7 +93,7 @@ export default function Home() {
       {/* Special interaction buttons */}
       <div className="flex gap-4 flex-col items-center">
         <Button 
-          onClick={() => alert(`You've clicked ${clickCount + 1} buttons!`)}
+          onClick={() => alert(`You've clicked ${clickCount} buttons total!`)}
           className="mt-4"
         >
           Show Alert
