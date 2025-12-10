@@ -1,17 +1,39 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useState, useEffect, useRef } from "react"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts'
+
+interface ClickData {
+  time: string
+  timestamp: number
+  totalClicks: number
+  buttonType: string
+}
 
 export default function Home() {
   const [clickCount, setClickCount] = useState(0)
   const [lastClicked, setLastClicked] = useState("")
   const [isAutoClicking, setIsAutoClicking] = useState(false)
+  const [showGraph, setShowGraph] = useState(false)
+  const [clickHistory, setClickHistory] = useState<ClickData[]>([])
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const handleButtonClick = (buttonType: string) => {
-    setClickCount(prev => prev + 1)
+    const newCount = clickCount + 1
+    const now = new Date()
+    
+    setClickCount(newCount)
     setLastClicked(buttonType)
+    
+    // Add to click history
+    setClickHistory(prev => [...prev, {
+      time: now.toLocaleTimeString(),
+      timestamp: now.getTime(),
+      totalClicks: newCount,
+      buttonType: buttonType
+    }])
   }
 
   const startAutoClicker = () => {
@@ -20,8 +42,20 @@ export default function Home() {
       setLastClicked("Auto Clicker")
       
       intervalRef.current = setInterval(() => {
-        setClickCount(prev => prev + 1)
-      }, 1000) // 1000ms = 1 second
+        const newCount = clickCount + 1
+        const now = new Date()
+        
+        setClickCount(prev => {
+          const updatedCount = prev + 1
+          setClickHistory(prevHistory => [...prevHistory, {
+            time: now.toLocaleTimeString(),
+            timestamp: now.getTime(),
+            totalClicks: updatedCount,
+            buttonType: "Auto Clicker"
+          }])
+          return updatedCount
+        })
+      }, 1000)
     }
   }
 
@@ -37,10 +71,32 @@ export default function Home() {
   const resetCounter = () => {
     setClickCount(0)
     setLastClicked("")
+    setClickHistory([])
     stopAutoClicker()
   }
 
-  // Cleanup interval on component unmount
+  // Get button type frequency data for bar chart
+  const getButtonTypeData = () => {
+    const buttonTypes: { [key: string]: number } = {}
+    
+    clickHistory.forEach(click => {
+      buttonTypes[click.buttonType] = (buttonTypes[click.buttonType] || 0) + 1
+    })
+    
+    return Object.entries(buttonTypes).map(([buttonType, count]) => ({
+      buttonType,
+      count
+    }))
+  }
+
+  // Get last 20 clicks for line chart (to keep it readable)
+  const getRecentClicksData = () => {
+    return clickHistory.slice(-20).map((click, index) => ({
+      ...click,
+      clickNumber: clickHistory.length - 19 + index
+    }))
+  }
+
   useEffect(() => {
     return () => {
       if (intervalRef.current) {
@@ -65,6 +121,94 @@ export default function Home() {
           <p className="text-sm text-green-600 font-semibold">🤖 Auto-clicking active!</p>
         )}
       </div>
+      
+      {/* Graph Toggle Button */}
+      <Button 
+        onClick={() => setShowGraph(!showGraph)}
+        variant="default"
+        className="bg-purple-600 hover:bg-purple-700"
+      >
+        {showGraph ? "Hide" : "Show"} Click Analytics 📊
+      </Button>
+
+      {/* Analytics Dashboard */}
+      {showGraph && clickHistory.length > 0 && (
+        <div className="w-full max-w-6xl space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Click Analytics Dashboard</CardTitle>
+              <CardDescription>
+                Visual representation of your button clicking activity
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-8">
+              {/* Line Chart - Clicks Over Time */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Clicks Over Time (Last 20)</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={getRecentClicksData()}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="time" 
+                      fontSize={12}
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                    />
+                    <YAxis />
+                    <Tooltip 
+                      labelFormatter={(value) => `Time: ${value}`}
+                      formatter={(value, name) => [value, "Total Clicks"]}
+                    />
+                    <Legend />
+                    <Line 
+                      type="monotone" 
+                      dataKey="totalClicks" 
+                      stroke="#8884d8" 
+                      strokeWidth={2}
+                      dot={{ fill: '#8884d8' }}
+                      name="Total Clicks"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Bar Chart - Button Type Frequency */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Button Type Frequency</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={getButtonTypeData()}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="buttonType" 
+                      fontSize={12}
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                    />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar 
+                      dataKey="count" 
+                      fill="#82ca9d" 
+                      name="Click Count"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {showGraph && clickHistory.length === 0 && (
+        <Card className="w-full max-w-md">
+          <CardContent className="text-center p-6">
+            <p className="text-gray-500">No click data yet. Start clicking buttons to see analytics!</p>
+          </CardContent>
+        </Card>
+      )}
       
       {/* Auto Clicker Controls */}
       <div className="flex gap-4 items-center p-4 border rounded-lg bg-blue-50">
@@ -147,7 +291,10 @@ export default function Home() {
       {/* Special interaction buttons */}
       <div className="flex gap-4 flex-col items-center">
         <Button 
-          onClick={() => alert(`You've clicked ${clickCount} buttons total!`)}
+          onClick={() => {
+            alert(`You've clicked ${clickCount} buttons total!`)
+            handleButtonClick("Alert Button")
+          }}
           className="mt-4"
         >
           Show Alert
@@ -165,6 +312,7 @@ export default function Home() {
           onClick={() => {
             if (confirm("Are you sure you want to do this?")) {
               alert("You confirmed! 🎉")
+              handleButtonClick("Confirm Action")
             }
           }}
         >
