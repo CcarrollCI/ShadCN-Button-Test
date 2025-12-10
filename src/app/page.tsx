@@ -2,8 +2,9 @@
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { useState, useEffect, useRef } from "react"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, BarChart, Bar, Tooltip, Legend } from 'recharts'
 
 interface ClickData {
   time: string
@@ -11,6 +12,13 @@ interface ClickData {
   totalClicks: number
   buttonType: string
 }
+
+const chartConfig = {
+  totalClicks: {
+    label: "Total Clicks",
+    color: "hsl(var(--chart-1))",
+  },
+} satisfies ChartConfig
 
 export default function Home() {
   const [clickCount, setClickCount] = useState(0)
@@ -89,11 +97,15 @@ export default function Home() {
     }))
   }
 
-  // Get last 20 clicks for line chart (to keep it readable)
-  const getRecentClicksData = () => {
-    return clickHistory.slice(-20).map((click, index) => ({
+  // Get all clicks data for shadcn line chart
+  const getAllClicksData = () => {
+    return clickHistory.map((click, index) => ({
       ...click,
-      clickNumber: clickHistory.length - 19 + index
+      clickNumber: index + 1,
+      // Format time for better display on x-axis
+      displayTime: clickHistory.length > 50 ? 
+        (index % Math.ceil(clickHistory.length / 20) === 0 ? click.time : '') : 
+        click.time
     }))
   }
 
@@ -133,44 +145,74 @@ export default function Home() {
 
       {/* Analytics Dashboard */}
       {showGraph && clickHistory.length > 0 && (
-        <div className="w-full max-w-6xl space-y-6">
+        <div className="w-full max-w-7xl space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Click Analytics Dashboard</CardTitle>
               <CardDescription>
-                Visual representation of your button clicking activity
+                Visual representation of your button clicking activity - All {clickHistory.length} clicks
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
-              {/* Line Chart - Clicks Over Time */}
+              {/* shadcn Line Chart - All Clicks Over Time */}
               <div>
-                <h3 className="text-lg font-semibold mb-4">Clicks Over Time (Last 20)</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={getRecentClicksData()}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="time" 
-                      fontSize={12}
+                <h3 className="text-lg font-semibold mb-4">All Clicks Over Time ({clickHistory.length} total)</h3>
+                <ChartContainer config={chartConfig}>
+                  <LineChart
+                    accessibilityLayer
+                    data={getAllClicksData()}
+                    margin={{
+                      top: 20,
+                      left: 12,
+                      right: 12,
+                      bottom: 60,
+                    }}
+                  >
+                    <CartesianGrid vertical={false} />
+                    <XAxis
+                      dataKey="displayTime"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
                       angle={-45}
                       textAnchor="end"
                       height={80}
+                      interval={0}
                     />
-                    <YAxis />
-                    <Tooltip 
-                      labelFormatter={(value) => `Time: ${value}`}
-                      formatter={(value, name) => [value, "Total Clicks"]}
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
                     />
-                    <Legend />
-                    <Line 
-                      type="monotone" 
-                      dataKey="totalClicks" 
-                      stroke="#8884d8" 
+                    <ChartTooltip
+                      cursor={false}
+                      content={<ChartTooltipContent 
+                        hideLabel={false}
+                        labelFormatter={(value, payload) => {
+                          if (payload && payload[0]) {
+                            const data = payload[0].payload
+                            return `Time: ${data.time} | Button: ${data.buttonType}`
+                          }
+                          return value
+                        }}
+                      />}
+                    />
+                    <Line
+                      dataKey="totalClicks"
+                      type="monotone"
+                      stroke="var(--color-totalClicks)"
                       strokeWidth={2}
-                      dot={{ fill: '#8884d8' }}
-                      name="Total Clicks"
+                      dot={{
+                        fill: "var(--color-totalClicks)",
+                        strokeWidth: 2,
+                        r: 4,
+                      }}
+                      activeDot={{
+                        r: 6,
+                      }}
                     />
                   </LineChart>
-                </ResponsiveContainer>
+                </ChartContainer>
               </div>
 
               {/* Bar Chart - Button Type Frequency */}
@@ -191,11 +233,33 @@ export default function Home() {
                     <Legend />
                     <Bar 
                       dataKey="count" 
-                      fill="#82ca9d" 
+                      fill="hsl(var(--chart-2))" 
                       name="Click Count"
                     />
                   </BarChart>
                 </ResponsiveContainer>
+              </div>
+
+              {/* Stats Summary */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t">
+                <div className="text-center p-4 bg-slate-50 rounded-lg">
+                  <p className="text-2xl font-bold text-blue-600">{clickHistory.length}</p>
+                  <p className="text-sm text-gray-600">Total Clicks</p>
+                </div>
+                <div className="text-center p-4 bg-slate-50 rounded-lg">
+                  <p className="text-2xl font-bold text-green-600">
+                    {new Set(clickHistory.map(click => click.buttonType)).size}
+                  </p>
+                  <p className="text-sm text-gray-600">Different Buttons</p>
+                </div>
+                <div className="text-center p-4 bg-slate-50 rounded-lg">
+                  <p className="text-2xl font-bold text-purple-600">
+                    {clickHistory.length > 0 ? 
+                      (clickHistory.filter(click => click.buttonType === "Auto Clicker").length / clickHistory.length * 100).toFixed(1) 
+                      : 0}%
+                  </p>
+                  <p className="text-sm text-gray-600">Auto Clicks</p>
+                </div>
               </div>
             </CardContent>
           </Card>
